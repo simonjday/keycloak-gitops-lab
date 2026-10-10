@@ -8,7 +8,7 @@ A reproducible lab that runs Keycloak 26.7 on a local kind cluster and wires it 
 ![Keycloak](https://img.shields.io/badge/Keycloak-26.7.0-4D4D4D?logo=keycloak)
 ![ArgoCD](https://img.shields.io/badge/ArgoCD-3.4-EF7B4D?logo=argo&logoColor=white)
 ![Platform](https://img.shields.io/badge/runs%20on-Docker%20Desktop%20%2B%20kind-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 ## What it demonstrates
 
@@ -158,4 +158,4 @@ Simon Day: [Medium](https://medium.com/@simonjday) · [Substack](https://sjd2504
 
 ## License
 
-[MIT](LICENSE)
+[Apache-2.0](LICENSE)
