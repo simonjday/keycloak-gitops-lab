@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Keycloak demo app</h1>
+{% if user %}
+  <p>Signed in as <strong>{{ user.preferred_username }}</strong> ({{ user.email }}).</p>
+  <p>Groups: {{ user.groups | join(", ") if user.groups else "none" }}</p>
+{% else %}
+  <p>You are not signed in.</p>
+  <p><a href="/login"><button>Log in with Keycloak</button></a></p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Pin to the Contour release you run; check that the render still names the Gateway "contour".
+  - https://raw.githubusercontent.com/projectcontour/contour/release-1.33/examples/render/contour-gateway.yaml
+patches:
+  - target: { kind: Service, name: envoy, namespace: projectcontour }
+    patch: |
+      apiVersion: v1
+      kind: Service
+      metadata: { name: envoy, namespace: projectcontour }
+      spec:
+        type: ClusterIP
+        clusterIP: 10.96.0.250        # immutable: set on first sync only
+        externalTrafficPolicy: null
+  - target: { kind: DaemonSet, name: envoy, namespace: projectcontour }
+    patch: |
+      apiVersion: apps/v1
+      kind: DaemonSet
+      metadata: { name: envoy, namespace: projectcontour }
+      spec:
+        template:
+          spec:
+            nodeSelector: { ingress-ready: "true" }
+            containers:
+              - name: envoy
+                ports:
+                  - { containerPort: 8080, hostPort: 80 }
+                  - { containerPort: 8443, hostPort: 443 }
+  # The Gateway lives in platform-config (wave -7) beside the wildcard certificate its HTTPS listener needs.
+  # Kept here, it could never go Healthy before that certificate existed, deadlocking the sync waves.
+  - target: { group: gateway.networking.k8s.io, kind: Gateway, name: contour }
+    patch: |
+      $patch: delete
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: Gateway
+      metadata: { name: contour, namespace: projectcontour }

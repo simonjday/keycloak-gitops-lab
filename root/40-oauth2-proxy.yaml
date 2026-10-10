@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "6" }
+spec:
+  project: default
+  sources:
+    - repoURL: https://oauth2-proxy.github.io/manifests
+      chart: oauth2-proxy
+      targetRevision: 10.7.1             # verified 10 Oct 2026
+      helm:
+        releaseName: oauth2-proxy
+        valueFiles: [$values/components/monitoring/oauth2-proxy-values.yaml]
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/lab/keycloak-gitops.git
+      targetRevision: main
+      ref: values
+    - repoURL: http://gitea-http.gitea.svc.cluster.local:3000/lab/keycloak-gitops.git
+      targetRevision: main
+      path: components/oauth2-proxy        # HTTPRoute for prometheus.localtest.me
+  destination: { server: https://kubernetes.default.svc, namespace: monitoring }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ServerSideApply=true]

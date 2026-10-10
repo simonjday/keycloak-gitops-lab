@@ -1,0 +1,67 @@
+global:
+  domain: argocd.localtest.me
+configs:
+  params:
+    server.insecure: true            # TLS terminates at Envoy
+    # Diff server-side: Gateway API objects and CRDs get API-server defaults that a client-side diff
+    # reports as permanent drift (OutOfSync after every successful sync).
+    controller.diff.server.side: "true"
+  cm:
+    url: https://argocd.localtest.me
+    admin.enabled: true              # set false after use case 1 proves SSO
+    # Lets sync waves wait for child Applications to be Healthy
+    # Contour static provisioning (gatewayRef) never writes GatewayClass status, so "Unknown / Waiting for
+    # controller" is normal and would leave the contour app Progressing forever. Only Accepted=False is unhealthy.
+    resource.customizations.health.gateway.networking.k8s.io_GatewayClass: |
+      hs = { status = "Healthy", message = "GatewayClass present" }
+      if obj.status ~= nil and obj.status.conditions ~= nil then
+        for _, c in ipairs(obj.status.conditions) do
+          if c.type == "Accepted" and c.status == "False" then
+            hs.status = "Degraded"
+            hs.message = c.message
+          end
+        end
+      end
+      return hs
+    resource.customizations.health.argoproj.io_Application: |
+      hs = { status = "Progressing", message = "" }
+      if obj.status ~= nil and obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then hs.message = obj.status.health.message end
+      end
+      -- Hold the next wave until the child's sync (including PostSync hooks such as the realm import) finishes.
+      if obj.status ~= nil and obj.status.operationState ~= nil and obj.status.operationState.phase == "Running" then
+        hs.status = "Progressing"
+        hs.message = "sync operation running"
+      end
+      return hs
+    # ArgoCD has no built-in health check for the Keycloak CR; without this it reports Healthy immediately
+    resource.customizations.health.k8s.keycloak.org_Keycloak: |
+      hs = { status = "Progressing", message = "Waiting for Keycloak" }
+      if obj.status ~= nil and obj.status.conditions ~= nil then
+        for _, c in ipairs(obj.status.conditions) do
+          if c.type == "Ready" and c.status == "True" then hs.status = "Healthy"; hs.message = "Ready" end
+          if c.type == "HasErrors" and c.status == "True" then hs.status = "Degraded"; hs.message = c.message end
+        end
+      end
+      return hs
+    # Step 7: uncomment once the platform realm exists, and paste ~/.kc-lab-ca/ca.crt into rootCA
+    # oidc.config: |
+    #   name: Keycloak
+    #   issuer: https://keycloak.localtest.me/realms/platform
+    #   clientID: argocd
+    #   clientSecret: $argocd-oidc-keycloak:clientSecret
+    #   requestedScopes: [openid, profile, email, groups]
+    #   rootCA: |
+    #     -----BEGIN CERTIFICATE-----
+    #     ...
+    #     -----END CERTIFICATE-----
+  rbac:
+    policy.default: role:readonly
+    scopes: "[groups]"
+    policy.csv: |
+      p, role:developer, applications, get,  */*, allow
+      p, role:developer, applications, sync, */*, allow
+      p, role:developer, logs,         get,  */*, allow
+      g, ArgoCD Admins, role:admin
+      g, Developers,    role:developer

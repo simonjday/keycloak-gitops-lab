@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - grafana-oidc.sealed.yaml           # written by 03-secrets.sh
+  - grafana-admin.sealed.yaml          # written by 03-secrets.sh
+  - oauth2-proxy.sealed.yaml           # written by 03-secrets.sh
+  - httproute.yaml
+configMapGenerator:
+  - name: lab-ca
+    files: [ca.crt=lab-ca.crt]         # copied from ~/.kc-lab-ca/ca.crt by 03-secrets.sh
+generatorOptions:
+  disableNameSuffixHash: true

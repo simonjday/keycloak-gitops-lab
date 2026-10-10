@@ -1,0 +1,6 @@
+*.key
+.DS_Store
+bootstrap/.rendered/
+secrets/raw/
+__pycache__/
+*.pyc

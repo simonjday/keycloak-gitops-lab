@@ -1,0 +1,17 @@
+# v1beta1 is accepted on 1.30-1.34; switch to apiserver.config.k8s.io/v1 once you move to a release where it is GA.
+apiVersion: apiserver.config.k8s.io/v1beta1
+kind: AuthenticationConfiguration
+jwt:
+  - issuer:
+      url: https://keycloak.localtest.me/realms/platform   # Keycloak issuers have no trailing slash
+      audiences:
+        - kubernetes                   # = clientId of the Keycloak client
+      certificateAuthority: |
+__CA_PEM__
+    claimMappings:
+      username:
+        claim: preferred_username
+        prefix: "oidc:"
+      groups:
+        claim: groups                  # from the realm's "groups" client scope (full.path=false)
+        prefix: "oidc:"

@@ -1,0 +1,29 @@
+apiVersion: k8s.keycloak.org/v2alpha1
+kind: Keycloak
+metadata:
+  name: keycloak
+spec:
+  instances: 1                         # PRODUCTION: 2+ (embedded Infinispan clusters the pods)
+  db:
+    vendor: postgres
+    host: keycloak-db-rw
+    database: keycloak
+    usernameSecret: { name: keycloak-db-app, key: username }
+    passwordSecret: { name: keycloak-db-app, key: password }
+  bootstrapAdmin:
+    user:
+      secret: keycloak-bootstrap-admin # keys: username, password. Temporary admin; replace with a realm admin later
+  hostname:
+    hostname: https://keycloak.localtest.me   # fixes the issuer for every caller, internal or external
+  proxy:
+    headers: xforwarded                # Envoy/Contour sends X-Forwarded-*
+  http:
+    httpEnabled: true                  # TLS terminates at Envoy
+  ingress:
+    enabled: false                     # HTTPRoute instead
+  additionalOptions:
+    - name: metrics-enabled
+      value: "true"
+  resources:
+    requests: { cpu: 250m, memory: 1Gi }
+    limits: { memory: 2Gi }

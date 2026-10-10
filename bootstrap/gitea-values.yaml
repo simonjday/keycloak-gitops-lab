@@ -1,0 +1,19 @@
+# PRODUCTION: chart defaults deploy postgresql-ha + valkey-cluster (HA, ~1.5 GB). This lab profile is SQLite + in-memory.
+postgresql-ha: { enabled: false }
+postgresql: { enabled: false }
+valkey-cluster: { enabled: false }
+valkey: { enabled: false }
+persistence:
+  enabled: true
+  size: 5Gi
+gitea:
+  admin:
+    username: lab
+    email: lab@localtest.me          # password injected by 02-bootstrap.sh
+  config:
+    database: { DB_TYPE: sqlite3 }
+    session: { PROVIDER: memory }
+    cache: { ADAPTER: memory }
+    queue: { TYPE: level }
+    server:
+      ROOT_URL: https://gitea.localtest.me/

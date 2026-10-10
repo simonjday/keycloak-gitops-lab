@@ -1,0 +1,14 @@
+# CloudNativePG creates Service keycloak-db-rw and Secret keycloak-db-app (keys: username, password, …).
+# Lab: one instance. PRODUCTION: instances: 3, backups to object storage, PodMonitor enabled.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+spec:
+  instances: 1
+  storage:
+    size: 2Gi
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak

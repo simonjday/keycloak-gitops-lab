@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ title }}</h1>
+<p class="{{ 'ok' if status < 400 else 'err' }}">HTTP {{ status }}</p>
+<pre>{{ body | tojson(indent=2) }}</pre>
+{% endblock %}

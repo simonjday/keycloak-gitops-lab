@@ -1,0 +1,23 @@
+# The single Gateway for the lab. Contour's static config (from the contour render) binds to projectcontour/contour,
+# and the GatewayClass "example" comes from that render. Lives here, not in components/contour, because the HTTPS
+# listener needs wildcard-localtest-me, which cert-manager issues in this same app.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: contour
+  namespace: projectcontour
+spec:
+  gatewayClassName: example
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80                        # Contour maps 80/443 to Envoy 8080/8443
+      allowedRoutes: { namespaces: { from: All } }
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.localtest.me"
+      tls:
+        mode: Terminate
+        certificateRefs: [{ name: wildcard-localtest-me }]
+      allowedRoutes: { namespaces: { from: All } }

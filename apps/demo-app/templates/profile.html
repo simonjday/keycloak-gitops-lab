@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Your tokens</h1>
+<table>
+  <tr><th>Token</th><th>Expires in</th><th>Audience</th></tr>
+  <tr><td>ID token</td><td>{{ id_claims.exp - now }} s</td><td>{{ id_claims.aud }}</td></tr>
+  <tr><td>Access token</td><td>{{ access_claims.exp - now }} s</td><td>{{ access_claims.aud }}</td></tr>
+  <tr><td>Refresh token</td><td>{{ (refresh_claims.exp - now) if refresh_claims.exp else "n/a" }} s</td><td>{{ refresh_claims.typ }}</td></tr>
+</table>
+<form method="post" action="/refresh"><p><button>Refresh tokens now</button></p></form>
+<h2>Roles for demo-api (access token)</h2>
+<pre>{{ access_claims.get("resource_access", {}).get("demo-api", {}).get("roles", []) | tojson }}</pre>
+<h2>ID token claims</h2>
+<pre>{{ id_claims | tojson(indent=2) }}</pre>
+<h2>Access token claims</h2>
+<pre>{{ access_claims | tojson(indent=2) }}</pre>
+{% endblock %}

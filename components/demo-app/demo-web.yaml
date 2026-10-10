@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-web
+  labels: { app: demo-web }
+spec:
+  replicas: 1                          # tokens are held in process memory; do not scale
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: demo-web } }
+  template:
+    metadata:
+      labels: { app: demo-web }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: web
+          image: demo-app:0.1.0          # loaded by 05-build-demo-app.sh
+          imagePullPolicy: IfNotPresent
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            - { name: OIDC_ISSUER, value: "https://keycloak.localtest.me/realms/platform" }
+            - { name: PUBLIC_URL, value: "https://demo.localtest.me" }
+            - { name: API_URL, value: "http://demo-api:8080" }
+            - { name: CLIENT_ID, value: "demo-web" }
+            - { name: ADMIN_GROUP, value: "Platform Engineers" }
+            - { name: REQUESTS_CA_BUNDLE, value: "/etc/ssl/lab/ca.crt" }
+            - name: CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: demo-app, key: web-client-secret } }
+            - name: SESSION_SECRET
+              valueFrom: { secretKeyRef: { name: demo-app, key: session-secret } }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }
+          resources:
+            requests: { cpu: 20m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: lab-ca, mountPath: /etc/ssl/lab, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: lab-ca
+          configMap: { name: lab-ca }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-web
+spec:
+  selector: { app: demo-web }
+  ports: [{ name: http, port: 8080, targetPort: http }]

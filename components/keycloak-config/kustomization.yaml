@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: keycloak
+resources:
+  - keycloak-config-env.sealed.yaml    # written by 03-secrets.sh
+  - config-job.yaml
+configMapGenerator:
+  - name: keycloak-realms
+    files:
+      - realms/platform.yaml
+# The hash suffix is kept on purpose: a realm change produces a new ConfigMap name, ArgoCD sees a diff,
+# auto-syncs the app, and the PostSync hook (config-job.yaml) re-runs against the new realm file.

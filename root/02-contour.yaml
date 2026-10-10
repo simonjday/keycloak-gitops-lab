@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: contour
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-8" }
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/lab/keycloak-gitops.git
+    targetRevision: main
+    path: components/contour
+  destination: { server: https://kubernetes.default.svc, namespace: projectcontour }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [ServerSideApply=true]

@@ -1,0 +1,39 @@
+# keycloak-config-cli applies realms/*.yaml through the Keycloak admin API on every ArgoCD sync of this app.
+# It only reconciles when this app syncs; UI drift persists until the next commit (see use case 7).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-config-cli
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext: { seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: config-cli
+          image: quay.io/adorsys/keycloak-config-cli:latest   # ran as v6.5.1 against Keycloak 26.7.0 on 10 Oct 2026; "6.5.1" is NOT a registry tag. To pin, use the digest: docker pull …:latest && docker inspect --format "{{index .RepoDigests 0}}"
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          env:
+            # Public URL so admin-API tokens carry the same issuer Keycloak advertises
+            - { name: KEYCLOAK_URL, value: "https://keycloak.localtest.me" }
+            - { name: KEYCLOAK_SSLVERIFY, value: "false" }     # lab: in-cluster hop to Envoy with the lab CA; mount a truststore in production
+            - { name: KEYCLOAK_AVAILABILITYCHECK_ENABLED, value: "true" }
+            - { name: KEYCLOAK_AVAILABILITYCHECK_TIMEOUT, value: "180s" }
+            - { name: IMPORT_FILES_LOCATIONS, value: "/config/*" }
+            - { name: IMPORT_VARSUBSTITUTION_ENABLED, value: "true" }
+            - name: KEYCLOAK_USER
+              valueFrom: { secretKeyRef: { name: keycloak-bootstrap-admin, key: username } }
+            - name: KEYCLOAK_PASSWORD
+              valueFrom: { secretKeyRef: { name: keycloak-bootstrap-admin, key: password } }
+          envFrom:
+            - secretRef: { name: keycloak-config-env }
+          volumeMounts:
+            - { name: realms, mountPath: /config, readOnly: true }
+      volumes:
+        - name: realms
+          configMap: { name: keycloak-realms }

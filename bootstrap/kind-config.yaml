@@ -1,0 +1,38 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: keycloak-lab
+networking:
+  serviceSubnet: 10.96.0.0/16          # 10.96.0.250 is pinned for Envoy
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.34.0        # pin the digest from the kind release notes
+    labels:
+      ingress-ready: "true"
+    extraPortMappings:
+      - { containerPort: 80,  hostPort: 80,  protocol: TCP }
+      - { containerPort: 443, hostPort: 443, protocol: TCP }
+    extraMounts:
+      - hostPath: __RENDERED_DIR__     # replaced by 01-cluster.sh; /Users is shared into the Docker Desktop VM
+        containerPath: /etc/kubernetes/authn
+        readOnly: true
+    kubeadmConfigPatches:
+      # kind (0.30, node v1.34) generates kubeadm.k8s.io/v1beta3, and patches only apply when the apiVersion matches.
+      # v1beta4-style patches (list-form extraArgs) are silently ignored. Check with:
+      #   docker exec <node> grep -n '^apiVersion' /kind/kubeadm.conf
+      - |
+        apiVersion: kubeadm.k8s.io/v1beta3
+        kind: InitConfiguration
+        patches:
+          directory: /etc/kubernetes/authn/patches   # kube-apiserver+strategic.yaml: hostAliases for the issuer
+      - |
+        apiVersion: kubeadm.k8s.io/v1beta3
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            authentication-config: /etc/kubernetes/authn/authn-config.yaml
+          extraVolumes:
+            - name: authn
+              hostPath: /etc/kubernetes/authn
+              mountPath: /etc/kubernetes/authn
+              readOnly: true
+              pathType: Directory

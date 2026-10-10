@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keycloak demo app</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 920px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    nav a { margin-right: 1rem; }
+    pre { background: rgba(127,127,127,.12); padding: 1rem; overflow-x: auto; border-radius: 8px; }
+    table { border-collapse: collapse; width: 100%; } td, th { border-bottom: 1px solid rgba(127,127,127,.3); padding: .3rem .5rem; text-align: left; }
+    .ok { color: #2e7d32; } .err { color: #c62828; }
+    button { padding: .4rem .8rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a><a href="/profile">Tokens</a><a href="/admin">Admin page</a>
+    <a href="/call/public">API public</a><a href="/call/user">API user</a><a href="/call/admin">API admin</a>
+    <a href="/logout">Log out</a>
+  </nav>
+  <hr>
+  {% block content %}{% endblock %}
+</body>
+</html>

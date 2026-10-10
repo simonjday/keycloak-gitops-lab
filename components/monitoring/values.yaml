@@ -1,0 +1,45 @@
+grafana:
+  # The chart would generate a random admin password on every render (its Secret lookup does not run under
+  # ArgoCD), leaving the Secret and Deployment permanently OutOfSync. Use a fixed one from a SealedSecret.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  grafana.ini:
+    server:
+      root_url: https://grafana.localtest.me
+    auth:
+      signout_redirect_url: https://keycloak.localtest.me/realms/platform/protocol/openid-connect/logout?client_id=grafana&post_logout_redirect_uri=https%3A%2F%2Fgrafana.localtest.me%2Flogin
+    auth.generic_oauth:
+      enabled: true
+      name: Keycloak
+      client_id: grafana
+      client_secret: $__file{/etc/secrets/grafana-oidc/client_secret}
+      scopes: openid profile email groups
+      auth_url: https://keycloak.localtest.me/realms/platform/protocol/openid-connect/auth
+      token_url: https://keycloak.localtest.me/realms/platform/protocol/openid-connect/token
+      api_url: https://keycloak.localtest.me/realms/platform/protocol/openid-connect/userinfo
+      use_pkce: true
+      tls_client_ca: /etc/ssl/lab/ca.crt
+      login_attribute_path: preferred_username
+      role_attribute_path: >-
+        contains(groups, 'Grafana Admins') && 'Admin' ||
+        contains(groups, 'Grafana Editors') && 'Editor' || 'Viewer'
+  extraSecretMounts:
+    - name: grafana-oidc
+      secretName: grafana-oidc
+      mountPath: /etc/secrets/grafana-oidc
+      readOnly: true
+  extraConfigmapMounts:
+    - name: lab-ca
+      configMap: lab-ca
+      mountPath: /etc/ssl/lab
+      readOnly: true
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 2d
+
+alertmanager:
+  enabled: false                       # lab: not needed for the demos

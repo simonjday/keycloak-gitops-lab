@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: coredns-config
+  namespace: argocd
+  annotations: { argocd.argoproj.io/sync-wave: "-8" }
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/lab/keycloak-gitops.git
+    targetRevision: main
+    path: components/coredns
+  destination: { server: https://kubernetes.default.svc, namespace: kube-system }
+  syncPolicy:
+    automated: { prune: false, selfHeal: true }   # never prune the cluster Corefile
+    syncOptions: [ServerSideApply=true]

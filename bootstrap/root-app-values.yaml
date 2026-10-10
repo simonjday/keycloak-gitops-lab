@@ -1,0 +1,15 @@
+# Values for the argocd-apps chart: creates the root app-of-apps after ArgoCD (and its CRDs) exist.
+# Installed once by 02-bootstrap.sh as a separate Helm release ("root-app").
+applications:
+  root:
+    namespace: argocd
+    project: default
+    source:
+      repoURL: http://gitea-http.gitea.svc.cluster.local:3000/lab/keycloak-gitops.git
+      targetRevision: main
+      path: root
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: argocd
+    syncPolicy:
+      automated: { prune: true, selfHeal: true }

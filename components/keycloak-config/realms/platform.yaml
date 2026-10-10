@@ -1,0 +1,211 @@
+# Applied by keycloak-config-cli. Values written as env placeholders come from the keycloak-config-env Secret.
+realm: platform
+enabled: true
+displayName: Platform Lab
+sslRequired: external
+bruteForceProtected: true
+accessTokenLifespan: 300               # 5 min: what use case 6 measures
+ssoSessionIdleTimeout: 1800
+browserFlow: browser                   # use case 5: change to browser-mfa
+
+roles:
+  client:
+    demo-api:                          # client roles the demo API checks
+      - { name: reader, description: "Read endpoints of the demo API" }
+      - { name: admin, description: "Admin endpoints of the demo API" }
+
+groups:
+  - name: Platform Engineers
+    clientRoles: { demo-api: [reader, admin] }
+  - name: ArgoCD Admins
+  - name: Grafana Admins
+  - name: Grafana Editors
+  - name: Developers
+    clientRoles: { demo-api: [reader] }   # use case 10: add admin here
+  - name: Auditors                     # no demo-api roles: carol gets 403 from the API
+
+clientScopes:
+  - name: groups
+    protocol: openid-connect
+    attributes:
+      include.in.token.scope: "true"
+      display.on.consent.screen: "false"
+    protocolMappers:
+      - name: groups
+        protocol: openid-connect
+        protocolMapper: oidc-group-membership-mapper
+        config:
+          claim.name: groups
+          full.path: "false"           # "Platform Engineers", not "/Platform Engineers"
+          id.token.claim: "true"
+          access.token.claim: "true"
+          userinfo.token.claim: "true"
+          introspection.token.claim: "true"
+
+authenticationFlows:
+  # Use case 5: password + mandatory OTP. Users without OTP are sent to enrolment.
+  - alias: browser-mfa
+    description: Browser login with mandatory OTP
+    providerId: basic-flow
+    topLevel: true
+    builtIn: false
+    authenticationExecutions:
+      - { authenticator: auth-cookie, requirement: ALTERNATIVE, priority: 10, authenticatorFlow: false, userSetupAllowed: false }
+      - { flowAlias: browser-mfa-forms, requirement: ALTERNATIVE, priority: 20, authenticatorFlow: true, userSetupAllowed: false }
+  - alias: browser-mfa-forms
+    description: Username, password, OTP
+    providerId: basic-flow
+    topLevel: false
+    builtIn: false
+    authenticationExecutions:
+      - { authenticator: auth-username-password-form, requirement: REQUIRED, priority: 10, authenticatorFlow: false, userSetupAllowed: false }
+      - { authenticator: auth-otp-form, requirement: REQUIRED, priority: 20, authenticatorFlow: false, userSetupAllowed: false }
+
+clients:
+  - clientId: argocd
+    name: ArgoCD
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:ARGOCD_CLIENT_SECRET)
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    redirectUris:
+      - https://argocd.localtest.me/auth/callback
+      - http://localhost:8085/auth/callback       # argocd login --sso
+    webOrigins: ["+"]
+    attributes:
+      post.logout.redirect.uris: https://argocd.localtest.me/*
+    defaultClientScopes: [web-origins, acr, basic, profile, roles, email, groups]
+
+  - clientId: grafana
+    name: Grafana
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:GRAFANA_CLIENT_SECRET)
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    redirectUris: [https://grafana.localtest.me/login/generic_oauth]
+    webOrigins: ["+"]
+    attributes:
+      pkce.code.challenge.method: S256
+      post.logout.redirect.uris: https://grafana.localtest.me/login
+    defaultClientScopes: [web-origins, acr, basic, profile, roles, email, groups]
+
+  - clientId: kubernetes
+    name: Kubernetes API
+    enabled: true
+    publicClient: true                 # kubelogin cannot keep a secret
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    redirectUris: [http://localhost:8000, http://localhost:18000]
+    attributes:
+      pkce.code.challenge.method: S256
+      access.token.lifespan: "300"
+    defaultClientScopes: [web-origins, acr, basic, profile, roles, email, groups]
+
+  - clientId: oauth2-proxy
+    name: Prometheus (via oauth2-proxy)
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:OAUTH2_PROXY_CLIENT_SECRET)
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    redirectUris: [https://prometheus.localtest.me/oauth2/callback]
+    attributes:
+      pkce.code.challenge.method: S256
+    protocolMappers:
+      - name: aud-oauth2-proxy         # oauth2-proxy validates aud on the access token
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        config:
+          included.client.audience: oauth2-proxy
+          id.token.claim: "false"
+          access.token.claim: "true"
+    defaultClientScopes: [web-origins, acr, basic, profile, roles, email, groups]
+
+  # ---- Demo application (Step 8) ----
+  - clientId: demo-web
+    name: Demo web app
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:DEMO_WEB_CLIENT_SECRET)
+    standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    redirectUris: [https://demo.localtest.me/callback]
+    webOrigins: ["+"]
+    attributes:
+      pkce.code.challenge.method: S256
+      post.logout.redirect.uris: https://demo.localtest.me/*
+    protocolMappers:
+      - name: aud-demo-api             # access tokens issued to demo-web are valid for demo-api
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        config:
+          included.client.audience: demo-api
+          id.token.claim: "false"
+          access.token.claim: "true"
+    defaultClientScopes: [web-origins, acr, basic, profile, roles, email, groups]
+
+  - clientId: demo-api                 # resource server: owns the client roles, uses its secret only for introspection
+    name: Demo API
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:DEMO_API_CLIENT_SECRET)
+    standardFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: false
+    defaultClientScopes: [basic]
+
+  - clientId: demo-cli                 # machine-to-machine client (client credentials)
+    name: Demo CLI / batch job
+    enabled: true
+    publicClient: false
+    clientAuthenticatorType: client-secret
+    secret: $(env:DEMO_CLI_CLIENT_SECRET)
+    standardFlowEnabled: false
+    directAccessGrantsEnabled: false
+    serviceAccountsEnabled: true
+    protocolMappers:
+      - name: aud-demo-api
+        protocol: openid-connect
+        protocolMapper: oidc-audience-mapper
+        config:
+          included.client.audience: demo-api
+          id.token.claim: "false"
+          access.token.claim: "true"
+    defaultClientScopes: [basic, roles]
+
+users:
+  - username: service-account-demo-cli # the service account Keycloak creates for demo-cli
+    enabled: true
+    serviceAccountClientId: demo-cli
+    clientRoles: { demo-api: [reader] }
+  - username: alice
+    enabled: true
+    email: alice@localtest.me
+    emailVerified: true
+    firstName: Alice
+    lastName: Admin
+    credentials: [{ type: password, value: $(env:DEMO_USER_PASSWORD), temporary: false }]
+    groups: ["/Platform Engineers", "/ArgoCD Admins", "/Grafana Admins"]
+  - username: bob
+    enabled: true                      # use case 6 (GitOps path): set to false
+    email: bob@localtest.me
+    emailVerified: true
+    firstName: Bob
+    lastName: Developer
+    credentials: [{ type: password, value: $(env:DEMO_USER_PASSWORD), temporary: false }]
+    groups: ["/Developers", "/Grafana Editors"]
+  - username: carol
+    enabled: true
+    email: carol@localtest.me
+    emailVerified: true
+    firstName: Carol
+    lastName: Auditor
+    credentials: [{ type: password, value: $(env:DEMO_USER_PASSWORD), temporary: false }]
+    groups: ["/Auditors"]

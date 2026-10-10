@@ -1,0 +1,21 @@
+# oauth2-proxy in front of Prometheus. Keycloak has no built-in authenticating proxy, so this replaces the
+# embedded outpost used in the authentik lab.
+config:
+  existingSecret: oauth2-proxy         # keys: client-id, client-secret, cookie-secret
+  configFile: |-
+    provider              = "keycloak-oidc"
+    oidc_issuer_url       = "https://keycloak.localtest.me/realms/platform"
+    redirect_url          = "https://prometheus.localtest.me/oauth2/callback"
+    upstreams             = [ "http://kube-prometheus-stack-prometheus.monitoring.svc:9090" ]
+    email_domains         = [ "*" ]
+    allowed_groups        = [ "Platform Engineers" ]   # use case 4 step 4 adds "Developers"
+    provider_ca_files     = [ "/etc/ssl/lab/ca.crt" ]
+    code_challenge_method = "S256"
+    cookie_secure         = true
+    reverse_proxy         = true
+    skip_provider_button  = true
+extraVolumes:
+  - name: lab-ca
+    configMap: { name: lab-ca }
+extraVolumeMounts:
+  - { name: lab-ca, mountPath: /etc/ssl/lab, readOnly: true }

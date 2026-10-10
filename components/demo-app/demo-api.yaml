@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+  labels: { app: demo-api }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: demo-api } }
+  template:
+    metadata:
+      labels: { app: demo-api }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 10001, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: api
+          image: demo-app:0.1.0          # loaded by 05-build-demo-app.sh
+          imagePullPolicy: IfNotPresent
+          command: [gunicorn, --bind, "0.0.0.0:8080", --workers, "2", "api:app"]
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            - { name: OIDC_ISSUER, value: "https://keycloak.localtest.me/realms/platform" }
+            - { name: AUDIENCE, value: "demo-api" }
+            - { name: CLIENT_ID, value: "demo-api" }
+            - { name: INTROSPECT, value: "false" }        # use case 12: set "true" and commit
+            - { name: REQUESTS_CA_BUNDLE, value: "/etc/ssl/lab/ca.crt" }
+            - name: CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: demo-app, key: api-client-secret } }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }
+          resources:
+            requests: { cpu: 20m, memory: 64Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: lab-ca, mountPath: /etc/ssl/lab, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: lab-ca
+          configMap: { name: lab-ca }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-api
+spec:
+  selector: { app: demo-api }
+  ports: [{ name: http, port: 8080, targetPort: http }]
