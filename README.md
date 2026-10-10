@@ -154,7 +154,7 @@ This is a teaching lab: single replicas, a self-signed CA, demo passwords in the
 
 ## Author
 
-Simon Day: [Medium](https://medium.com/@simonjday) · [Substack](https://sjd2504.substack.com) · [GitHub](https://github.com/simonjday)
+Simon Day: [Medium](https://medium.com/@simonjday) · [GitHub](https://github.com/simonjday)
 
 ## License
 
